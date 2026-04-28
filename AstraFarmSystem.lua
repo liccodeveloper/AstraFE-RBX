@@ -223,19 +223,21 @@ task.spawn(function()
                 end
 
                 if not Mon or not NameQuest then
-                    warn("[Astra] No mob/quest found for level")
+                    warn("[Astra] No mob/quest for level. Mon=", tostring(Mon), "Quest=", tostring(NameQuest), "Level=", tostring(MyLevel))
                     return
                 end
 
+                warn("[Astra] Farming:", Mon, "| Quest:", NameQuest, "| Level:", MyLevel)
+
                 local char = LocalPlayer.Character
-                if not char then return end
+                if not char then warn("[Astra] No character") return end
                 local hrp = char:FindFirstChild("HumanoidRootPart")
-                if not hrp then return end
+                if not hrp then warn("[Astra] No HRP") return end
 
                 local questGui = LocalPlayer.PlayerGui:FindFirstChild("Main")
-                if not questGui then return end
+                if not questGui then warn("[Astra] No Main GUI") return end
                 questGui = questGui:FindFirstChild("Quest")
-                if not questGui then return end
+                if not questGui then warn("[Astra] No Quest GUI") return end
 
                 local questVisible = questGui.Visible
                 local questText = ""
