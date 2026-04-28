@@ -43,7 +43,7 @@ local ok, err = pcall(function()
         return
     end
     -- Strip UTF-8 BOM if present (PowerShell adds it)
-    if code:sub(1, 3) == "\239\187\191" then
+    if string.byte(code, 1) == 239 and string.byte(code, 2) == 187 and string.byte(code, 3) == 191 then
         code = code:sub(4)
     end
     local fn, loadErr = loadstring(code)
