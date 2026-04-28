@@ -76,13 +76,21 @@ function UnEquipWeapon(weaponName)
     end)
 end
 
--- Tween-based teleport
+-- Tween-based teleport (Part-sync method)
 local CurrentTween = nil
+local TweenPart = nil
+local TweenSync = nil
 
 function StopTween(state)
-    if not state and CurrentTween then
-        pcall(function() CurrentTween:Cancel() end)
+    if not state then
+        pcall(function()
+            if CurrentTween then CurrentTween:Cancel() end
+            if TweenSync then TweenSync:Disconnect() end
+            if TweenPart then TweenPart:Destroy() end
+        end)
         CurrentTween = nil
+        TweenSync = nil
+        TweenPart = nil
     end
 end
 
@@ -93,25 +101,38 @@ function topos(targetCFrame)
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
 
-        if CurrentTween then
-            pcall(function() CurrentTween:Cancel() end)
-        end
+        StopTween(false)
+
+        -- Create invisible anchored part to tween
+        local pt = Instance.new("Part")
+        pt.Name = "AstraFarmTween"
+        pt.Size = Vector3.new(1, 1, 1)
+        pt.Anchored = true
+        pt.Transparency = 1
+        pt.CanCollide = false
+        pt.CFrame = hrp.CFrame
+        pt.Parent = char
+        TweenPart = pt
+
+        -- Sync HRP to the tweened part
+        TweenSync = RunService.Stepped:Connect(function()
+            pcall(function()
+                if char and hrp and pt and pt.Parent then
+                    hrp.CFrame = pt.CFrame
+                    hrp.Velocity = Vector3.new(0, 0, 0)
+                end
+            end)
+        end)
 
         local dist = (hrp.Position - targetCFrame.Position).Magnitude
         local speed = 300
-        local t = math.max(dist / speed, 0.01)
+        local t = math.max(dist / speed, 0.1)
 
-        CurrentTween = TweenService:Create(hrp, TweenInfo.new(t, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
+        CurrentTween = TweenService:Create(pt, TweenInfo.new(t, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
         CurrentTween:Play()
+        CurrentTween.Completed:Wait()
 
-        while CurrentTween and CurrentTween.PlaybackState == Enum.PlaybackState.Playing do
-            task.wait()
-        end
-
-        if CurrentTween then
-            pcall(function() CurrentTween:Cancel() end)
-        end
-        CurrentTween = nil
+        StopTween(false)
     end)
 end
 
@@ -144,53 +165,114 @@ task.spawn(function()
 end)
 
 -- ═══════════════════════════════════════════════════
+-- Helper: Find quest NPC CFrame in workspace
+-- ═══════════════════════════════════════════════════
+function FindQuestNPC(questName)
+    local result = nil
+    pcall(function()
+        for _, npc in pairs(workspace:GetDescendants()) do
+            if npc:IsA("Model") and npc:FindFirstChild("HumanoidRootPart") then
+                local head = npc:FindFirstChild("Head")
+                if head then
+                    local dialog = head:FindFirstChildOfClass("Dialog")
+                    local billboard = head:FindFirstChildOfClass("BillboardGui")
+                    if dialog or billboard then
+                        -- Check if this NPC name relates to our quest
+                        if npc:FindFirstChild("Humanoid") then
+                            result = npc.HumanoidRootPart.CFrame
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    return result
+end
+
+-- ═══════════════════════════════════════════════════
 -- Auto Farm Level (background loop)
 -- ═══════════════════════════════════════════════════
 task.spawn(function()
-    while task.wait() do
+    while task.wait(0.1) do
         if _G.AutoFarm then
-            pcall(function()
-                local questGui = LocalPlayer.PlayerGui.Main.Quest
-                local questText = questGui.Container.QuestTitle.Title.Text
+            local ok, err = pcall(function()
+                -- Resolve quest data for current level
+                if typeof(CheckQuest) == "function" then
+                    CheckQuest()
+                else
+                    warn("[Astra] CheckQuest not loaded!")
+                    return
+                end
 
-                if typeof(CheckQuest) == "function" then CheckQuest() end
+                if not Mon or not NameQuest then
+                    warn("[Astra] No mob/quest found for level")
+                    return
+                end
 
-                if not questGui.Visible then
+                local char = LocalPlayer.Character
+                if not char then return end
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                local questGui = LocalPlayer.PlayerGui:FindFirstChild("Main")
+                if not questGui then return end
+                questGui = questGui:FindFirstChild("Quest")
+                if not questGui then return end
+
+                local questVisible = questGui.Visible
+                local questText = ""
+                pcall(function()
+                    questText = questGui.Container.QuestTitle.Title.Text
+                end)
+
+                if not questVisible then
+                    -- No active quest: go accept one
                     StartBring = false
-                    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                    if hrp and CFrameQuest then
+                    if CFrameQuest then
                         if (hrp.Position - CFrameQuest.Position).Magnitude > 20 then
                             topos(CFrameQuest)
                         else
                             ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", NameQuest, LevelQuest)
                         end
+                    else
+                        -- No CFrame in data, just try to accept quest directly
+                        ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", NameQuest, LevelQuest)
                     end
                 else
-                    if NameMon and not string.find(questText, NameMon) then
+                    -- Quest active
+                    if NameMon and questText ~= "" and not string.find(questText, NameMon) then
+                        -- Wrong quest, abandon
                         StartBring = false
                         ReplicatedStorage.Remotes.CommF_:InvokeServer("AbandonQuest")
                     else
-                        if Mon and game:GetService("Workspace").Enemies:FindFirstChild(Mon) then
-                            for _, mob in pairs(game:GetService("Workspace").Enemies:GetChildren()) do
-                                if mob.Name == Mon and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
-                                    repeat
-                                        task.wait()
-                                        EquipWeapon(_G.SelectWeapon)
-                                        AutoHaki()
-                                        PosMon = mob.HumanoidRootPart.CFrame
-                                        topos(mob.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                        -- Find and attack the target mob
+                        local foundMob = false
+                        for _, mob in pairs(workspace.Enemies:GetChildren()) do
+                            if mob.Name == Mon and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                                foundMob = true
+                                repeat
+                                    task.wait()
+                                    EquipWeapon(_G.SelectWeapon)
+                                    AutoHaki()
+                                    PosMon = mob.HumanoidRootPart.CFrame
+                                    topos(mob.HumanoidRootPart.CFrame * CFrame.new(0, 20, 0))
+                                    pcall(function()
                                         mob.HumanoidRootPart.CanCollide = false
                                         mob.Humanoid.WalkSpeed = 0
                                         mob.Head.CanCollide = false
                                         mob.HumanoidRootPart.Size = Vector3.new(70, 70, 70)
-                                        StartBring = true
-                                        MonFarm = mob.Name
-                                        game:GetService("VirtualUser"):CaptureController()
-                                        game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
-                                    until not _G.AutoFarm or mob.Humanoid.Health <= 0 or not mob.Parent or not questGui.Visible
-                                end
+                                    end)
+                                    StartBring = true
+                                    MonFarm = mob.Name
+                                    game:GetService("VirtualUser"):CaptureController()
+                                    game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
+                                until not _G.AutoFarm or not mob.Parent or mob.Humanoid.Health <= 0 or not questGui.Visible
+                                break
                             end
-                        else
+                        end
+
+                        if not foundMob then
+                            -- Mob not spawned yet, teleport to spawn area
                             if CFrameMon then
                                 topos(CFrameMon)
                             end
@@ -199,6 +281,9 @@ task.spawn(function()
                     end
                 end
             end)
+            if not ok then
+                warn("[Astra Farm Error]", err)
+            end
         end
     end
 end)
