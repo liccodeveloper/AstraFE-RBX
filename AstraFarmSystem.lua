@@ -248,14 +248,18 @@ task.spawn(function()
                 if not questVisible then
                     -- No active quest: go accept one
                     StartBring = false
+                    warn("[Astra] Quest NOT visible. CFrameQuest=", tostring(CFrameQuest ~= nil), "NameQuest=", NameQuest, "LevelQuest=", LevelQuest)
                     if CFrameQuest then
-                        if (hrp.Position - CFrameQuest.Position).Magnitude > 20 then
+                        local dist = (hrp.Position - CFrameQuest.Position).Magnitude
+                        warn("[Astra] Distance to quest NPC:", math.floor(dist))
+                        if dist > 20 then
                             topos(CFrameQuest)
                         else
+                            warn("[Astra] Accepting quest...")
                             ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", NameQuest, LevelQuest)
                         end
                     else
-                        -- No CFrame in data, just try to accept quest directly
+                        warn("[Astra] No CFrame, accepting quest directly...")
                         ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", NameQuest, LevelQuest)
                     end
                 else
