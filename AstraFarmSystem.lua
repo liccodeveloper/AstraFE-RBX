@@ -37,7 +37,7 @@ end
 -- Load CheckQuest Module (Level Tables)
 -- ═══════════════════════════════════════════════════
 pcall(function()
-    loadstring(game:HttpGet("CHECKQUEST_MODULE_URL_HERE"))()
+    loadstring(game:HttpGet("https://github.com/liccodeveloper/AstraFE-RBX/raw/refs/heads/main/AstraCheckQuest.lua"))()
 end)
 
 -- ═══════════════════════════════════════════════════
@@ -320,24 +320,6 @@ task.spawn(function()
     end
 end)
 
--- ═══════════════════════════════════════════════════
--- Noclip for farming (keeps character uncollidable)
--- ═══════════════════════════════════════════════════
-task.spawn(function()
-    pcall(function()
-        RunService.Stepped:Connect(function()
-            if _G.AutoFarm or _G.BringMonster then
-                pcall(function()
-                    for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-                        if part:IsA("BasePart") then
-                            part.CanCollide = false
-                        end
-                    end
-                end)
-            end
-        end)
-    end)
-end)
 
 -- ═══════════════════════════════════════════════════
 -- Module Init: Creates UI elements on given tab
