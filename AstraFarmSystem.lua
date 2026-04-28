@@ -36,9 +36,23 @@ end
 -- ═══════════════════════════════════════════════════
 -- Load CheckQuest Module (Level Tables)
 -- ═══════════════════════════════════════════════════
-pcall(function()
-    loadstring(game:HttpGet("https://github.com/liccodeveloper/AstraFE-RBX/raw/refs/heads/main/AstraCheckQuest.lua"))()
+local ok, err = pcall(function()
+    local code = game:HttpGet("https://github.com/liccodeveloper/AstraFE-RBX/raw/refs/heads/main/AstraCheckQuest.lua")
+    if not code or code == "" then
+        warn("[Astra] CheckQuest: Empty response from GitHub")
+        return
+    end
+    local fn, loadErr = loadstring(code)
+    if not fn then
+        warn("[Astra] CheckQuest syntax error:", loadErr)
+        return
+    end
+    fn()
+    warn("[Astra] CheckQuest loaded successfully!")
 end)
+if not ok then
+    warn("[Astra] CheckQuest load failed:", err)
+end
 
 -- ═══════════════════════════════════════════════════
 -- Helper Functions
