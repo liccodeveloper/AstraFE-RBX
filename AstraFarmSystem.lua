@@ -218,26 +218,20 @@ task.spawn(function()
                 if typeof(CheckQuest) == "function" then
                     CheckQuest()
                 else
-                    warn("[Astra] CheckQuest not loaded!")
                     return
                 end
 
-                if not Mon or not NameQuest then
-                    warn("[Astra] No mob/quest for level. Mon=", tostring(Mon), "Quest=", tostring(NameQuest), "Level=", tostring(MyLevel))
-                    return
-                end
-
-                warn("[Astra] Farming:", Mon, "| Quest:", NameQuest, "| Level:", MyLevel)
+                if not Mon or not NameQuest then return end
 
                 local char = LocalPlayer.Character
-                if not char then warn("[Astra] No character") return end
+                if not char then return end
                 local hrp = char:FindFirstChild("HumanoidRootPart")
-                if not hrp then warn("[Astra] No HRP") return end
+                if not hrp then return end
 
                 local questGui = LocalPlayer.PlayerGui:FindFirstChild("Main")
-                if not questGui then warn("[Astra] No Main GUI") return end
+                if not questGui then return end
                 questGui = questGui:FindFirstChild("Quest")
-                if not questGui then warn("[Astra] No Quest GUI") return end
+                if not questGui then return end
 
                 local questVisible = questGui.Visible
                 local questText = ""
@@ -248,18 +242,13 @@ task.spawn(function()
                 if not questVisible then
                     -- No active quest: go accept one
                     StartBring = false
-                    warn("[Astra] Quest NOT visible. CFrameQuest=", tostring(CFrameQuest ~= nil), "NameQuest=", NameQuest, "LevelQuest=", LevelQuest)
                     if CFrameQuest then
-                        local dist = (hrp.Position - CFrameQuest.Position).Magnitude
-                        warn("[Astra] Distance to quest NPC:", math.floor(dist))
-                        if dist > 20 then
+                        if (hrp.Position - CFrameQuest.Position).Magnitude > 20 then
                             topos(CFrameQuest)
                         else
-                            warn("[Astra] Accepting quest...")
                             ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", NameQuest, LevelQuest)
                         end
                     else
-                        warn("[Astra] No CFrame, accepting quest directly...")
                         ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", NameQuest, LevelQuest)
                     end
                 else
